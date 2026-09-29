@@ -18,7 +18,7 @@ classifiers = [
   "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
 ]
 dependencies = [
-    "deltabot-cli>=8.0.0,<9.0",
+    "deltabot-cli>=9.1.0",
     "requests",
 ]
 

@@ -6,12 +6,12 @@ import tempfile
 import time
 from pathlib import Path
 from threading import Thread
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Tuple
 
 import requests
-from deltachat2 import Bot, JsonRpcError, Message, MessageViewtype, MsgData
+from deltachat2 import Bot, JsonRpcError, Message, MessageData, Viewtype
 
-mb_config = {}
+mb_config: dict[str, Any] = {}
 chat2gateway: Dict[Tuple[int, int], List[str]] = {}
 gateway2chat: Dict[str, List[Tuple[int, int]]] = {}
 
@@ -88,7 +88,7 @@ def mb2dc(bot: Bot, msg: dict, exclude: Tuple[int, int] = (0, 0)) -> None:  # no
     text = msg.get("text") or ""
     if msg["event"] == "user_action":
         text = "/me " + text
-    reply = MsgData(
+    reply = MessageData(
         text=text,
         override_sender_name=msg["username"],
     )
@@ -102,7 +102,7 @@ def mb2dc(bot: Bot, msg: dict, exclude: Tuple[int, int] = (0, 0)) -> None:  # no
             with open(reply.file, mode="wb") as attachment:
                 attachment.write(data)
             if file["Name"].endswith((".tgs", ".webp")):
-                reply.viewtype = MessageViewtype.STICKER
+                reply.viewtype = Viewtype.STICKER
             for accid, chat_id in chats:
                 try:
                     bot.rpc.send_msg(accid, chat_id, reply)

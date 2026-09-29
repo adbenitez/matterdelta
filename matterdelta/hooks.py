@@ -6,10 +6,12 @@ from deltabot_cli import BotCli
 from deltachat2 import (
     Bot,
     ChatType,
-    CoreEvent,
     EventType,
-    JsonRpcError,
-    MsgData,
+    EventTypeError,
+    EventTypeInfo,
+    EventTypeSecurejoinInviterProgress,
+    EventTypeWarning,
+    MessageData,
     NewMsgEvent,
     events,
 )
@@ -46,19 +48,19 @@ def _on_start(bot: Bot, args: Namespace) -> None:
 
 
 @cli.on(events.RawEvent)
-def _log_event(bot: Bot, accid: int, event: CoreEvent) -> None:
-    if event.kind == EventType.INFO:
-        bot.logger.debug(event.msg)
-    elif event.kind == EventType.WARNING:
-        bot.logger.warning(event.msg)
-    elif event.kind == EventType.ERROR:
-        bot.logger.error(event.msg)
-    elif event.kind == EventType.SECUREJOIN_INVITER_PROGRESS:
-        if event.progress == 1000:
-            if not bot.rpc.get_contact(accid, event.contact_id).is_bot:
-                bot.logger.debug("QR scanned by contact id=%s", event.contact_id)
-                chatid = bot.rpc.create_chat_by_contact_id(accid, event.contact_id)
-                if not is_community(bot, accid):
+def _log_event(bot: Bot, accid: int, event: EventType) -> None:
+    match event:
+        case EventTypeInfo():
+            bot.logger.debug(event.msg)
+        case EventTypeWarning():
+            bot.logger.warning(event.msg)
+        case EventTypeError():
+            bot.logger.error(event.msg)
+        case EventTypeSecurejoinInviterProgress():
+            if event.progress == 1000:
+                if not bot.rpc.get_contact(accid, event.contact_id).is_bot:
+                    bot.logger.debug("QR scanned by contact id=%s", event.contact_id)
+                    chatid = bot.rpc.create_chat_by_contact_id(accid, event.contact_id)
                     _send_help(bot, accid, chatid)
 
 
@@ -70,8 +72,7 @@ def _bridge(bot: Bot, accid: int, event: NewMsgEvent) -> None:
     chat = bot.rpc.get_basic_chat_info(accid, msg.chat_id)
     if chat.chat_type == ChatType.SINGLE and not msg.is_bot:
         bot.rpc.markseen_msgs(accid, [msg.id])
-        if not is_community(bot, accid):
-            _send_help(bot, accid, msg.chat_id)
+        _send_help(bot, accid, msg.chat_id)
     else:
         dc2mb(bot, accid, msg)
 
@@ -83,9 +84,9 @@ def _id(bot: Bot, accid: int, event: NewMsgEvent) -> None:
     chat = bot.rpc.get_basic_chat_info(accid, msg.chat_id)
     if chat.chat_type == ChatType.SINGLE:
         text = "You can't use /id command here, add me to a group and use the command there"
-        reply = MsgData(text=text, quoted_message_id=msg.id)
+        reply = MessageData(text=text, quoted_message_id=msg.id)
     else:
-        reply = MsgData(text=f"accountId: {accid}\nchatId: {msg.chat_id}")
+        reply = MessageData(text=f"accountId: {accid}\nchatId: {msg.chat_id}")
     bot.rpc.send_msg(accid, msg.chat_id, reply)
 
 
@@ -96,12 +97,4 @@ def _send_help(bot: Bot, accid: int, chatid: int) -> None:
         "**Available commands**\n\n"
         "/id - send me this command in a group to get its ID."
     )
-    bot.rpc.send_msg(accid, chatid, MsgData(text=text))
-
-
-def is_community(bot: Bot, accid: int) -> bool:
-    """Return True if this is a community account."""
-    try:
-        return bot.rpc.get_config(accid, "is_community") == "1"
-    except JsonRpcError:
-        return False
+    bot.rpc.send_msg(accid, chatid, MessageData(text=text))
